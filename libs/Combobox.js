@@ -124,7 +124,7 @@ export const combobox = {
     // アイテムの削除
     remove_item: function ({ id, item }) {
         // console.log(`.item[data-value="${id}"`)
-        item ??= this._elems.menu.querySelector(`.item[data-value="${id}"`);
+        item ??= this._elems.menu.querySelector(`.item[data-value="${id}"]`);
         item.remove();
         delete this._items[id];
     },
