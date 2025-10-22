@@ -75,7 +75,7 @@ async function main() {
         });
         combobox.addEventListener('selected', e => {
             storage.change(e.id);
-            editor.setValue(storage.get().codes[0]);
+            editor.setValue(storage.get().codes[0] ?? "");
         });
         combobox.addEventListener('entrypoint', e => {
             storage.set_entrypoint(e.id, e.status);
@@ -235,12 +235,13 @@ async function main() {
             console_elem.textContent = "";
 
             worker = new Worker('./libs_monaco/worker.js', { type: 'module' });
+            const timeout_target_id = storage.get().id;
             worker_timer_id = setTimeout(() => {
                 console.log("TIMEOUT!!!");
                 worker.terminate();
                 worker = undefined;
                 set_error_in_iframe({ lineno: '?', message: "JavaScriptが終了しません" });
-                storage.undo();
+                storage.undo(timeout_target_id);
             }, 2000);
             worker.addEventListener('message', e => {
                 worker.terminate();
@@ -249,9 +250,11 @@ async function main() {
                 const { status, message } = e.data;
                 console.log(`check worker status status=${status}, message=${message}`)
                 if (params.safe_mode === false) {
-                    const files = storage.list().reduce((a, e) => ({ ...a, [e.name]: removeLineComments(e.codes[0]) }), {});
+                    const files = storage.list().reduce((a, e) => ({ ...a, [e.name]: removeLineComments(e.codes[0] ?? "") }), {});
                     const with_importmap_html = html_strings.replace(/(<html[^>]*>)/i, `$1${build_importmap(files)}`);
-                    const inlined_html = inlineHTML(with_importmap_html, 'localhost/', files);
+                    // const inlined_html = inlineHTML(with_importmap_html, 'localhost/', files);
+                    const inlined_html = inlineHTML(with_importmap_html, files);
+console.log(inlined_html)
                     const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${iframeErrorHandlerScript}`);
                     editor_output.srcdoc = with_error_handler_html;
                 }
@@ -265,7 +268,7 @@ async function main() {
 
         // 最初に保存しているコードをeditorに表示する
         if (storage.get().codes.length > 0) {
-            editor.setValue(storage.get().codes[0]);
+            editor.setValue(storage.get().codes[0] ?? "");
         }
 
         // debug

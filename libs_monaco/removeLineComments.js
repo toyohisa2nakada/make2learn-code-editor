@@ -4,7 +4,7 @@
 export function removeLineComments(code) {
     let result = '';
     let i = 0;
-
+// console.log(code)
     while (i < code.length) {
         const char = code[i];
 

@@ -5,25 +5,27 @@
  * 元の行数を維持するために空行を追加します。
  */
 
-export function inlineHTML(htmlString, key, contentMap0) {
+export function inlineHTML(htmlString, /*key,*/ contentMap0) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
-    const contentMap1 = Object.entries(contentMap0).reduce((a,[k,v])=>({...a,[k]:v.replace(/(\r\n|\n|\r)/g, '')}),{});
+    const contentMap1 = Object.entries(contentMap0).reduce((a, [k, v]) => ({ ...a, [k]: v.replace(/(\r\n|\n|\r)/g, '') }), {});
 
     // 処理対象のタグ情報を収集
     const replacements = [];
 
     // <link>タグを検索
-    const links = doc.querySelectorAll(`link[href^="${key}"]`);
+    // const links = doc.querySelectorAll(`link[href^="${key}"]`);
+    const links = doc.querySelectorAll(`link[href]`);
     links.forEach(link => {
+        // const href = link.getAttribute('href');
+        // const path = href.replace(new RegExp(`^${key}`), '');
         const href = link.getAttribute('href');
-        const path = href.replace(new RegExp(`^${key}`), '');
-        const content = contentMap1[path];
+console.log(href);
 
-        if (content) {
+        if (!/[\/\\:?#]/.test(href) && href in contentMap1) {
             replacements.push({
                 element: link,
-                content: content,
+                content: contentMap1[href],
                 type: 'link',
                 href: href,
                 outerHTML: link.outerHTML
@@ -32,16 +34,19 @@ export function inlineHTML(htmlString, key, contentMap0) {
     });
 
     // <script>タグを検索
-    const scripts = doc.querySelectorAll(`script[src^="${key}"]`);
+    // const scripts = doc.querySelectorAll(`script[src^="${key}"]`);
+    const scripts = doc.querySelectorAll(`script[src]`);
     scripts.forEach(script => {
         const src = script.getAttribute('src');
-        const path = src.replace(new RegExp(`^${key}`), '');
-        const content = contentMap1[path];
+        // const path = src.replace(new RegExp(`^${key}`), '');
+        // const content = contentMap1[path];
+console.log(src)
 
-        if (content) {
+        // if (content !== undefined) {
+        if(!/[\/\\:?#]/.test(src) && src in contentMap1) {
             replacements.push({
                 element: script,
-                content: content,
+                content: contentMap1[src],
                 type: 'script',
                 src: src,
                 outerHTML: script.outerHTML
