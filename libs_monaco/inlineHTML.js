@@ -15,11 +15,8 @@ export function inlineHTML(htmlString, contentMap0) {
     const insertionRecords = [];
 
     // <link>タグを検索
-    // const links = doc.querySelectorAll(`link[href^="${key}"]`);
     const links = doc.querySelectorAll(`link[href]`);
     links.forEach(link => {
-        // const href = link.getAttribute('href');
-        // const path = href.replace(new RegExp(`^${key}`), '');
         const href = link.getAttribute('href');
 
         if (!/[\/\\:?#]/.test(href) && href in contentMap1) {
@@ -34,12 +31,10 @@ export function inlineHTML(htmlString, contentMap0) {
     });
 
     // <script>タグを検索
-    // const scripts = doc.querySelectorAll(`script[src^="${key}"]`);
     const scripts = doc.querySelectorAll(`script[src]`);
     scripts.forEach(script => {
         const src = script.getAttribute('src');
 
-        // if (content !== undefined) {
         if (!/[\/\\:?#]/.test(src) && src in contentMap1) {
             replacements.push({
                 element: script,
