@@ -182,22 +182,54 @@ async function main() {
         window.addEventListener('message', e => {
             if (e.data && e.data.type === 'iframe-error') {
                 const info = e.data;
-                const lineno = info.lineno - iframeErrorHandlerScript.split('\n').length + 1;
+                const lineno = info.adjustedLineno ?? info.lineno;
                 set_error_in_iframe({ lineno, message: info.message })
             }
         })
         // iframe側でエラーを送信するコード、これをユーザの作成したものに埋め込む
-        const iframeErrorHandlerScript = `
+        const buildIframeErrorHandlerScript = (lineAdjustments) => `
             <script>
-                window.onerror = function (message, source, lineno, colno, error) {
-                    window.parent.postMessage({
-                        type: 'iframe-error',
-                        message: message,
-                        source: source,
-                        lineno: lineno
-                    }, '*');
-                    return true;
-                };
+                (function () {
+                    const adjustments = ${JSON.stringify(lineAdjustments ?? [])};
+                    function adjustLineNumber(lineno) {
+                        if (typeof lineno !== 'number') {
+                            return lineno;
+                        }
+                        let adjusted = lineno;
+                        for (const entry of adjustments) {
+                            if (!entry) {
+                                continue;
+                            }
+                            const startLine = Number(entry.startLine);
+                            const addedLineCount = Number(entry.addedLineCount);
+                            const originalLineCount = Number(entry.originalLineCount);
+                            if (!Number.isFinite(startLine) || !Number.isFinite(addedLineCount)) {
+                                continue;
+                            }
+                            if (lineno < startLine || addedLineCount <= 0) {
+                                continue;
+                            }
+                            const normalizedOriginalCount = Number.isFinite(originalLineCount) && originalLineCount > 0 ? originalLineCount : 1;
+                            const originalEndLine = startLine + normalizedOriginalCount - 1;
+                            const overrun = Math.max(0, lineno - originalEndLine);
+                            const delta = Math.min(addedLineCount, overrun);
+                            adjusted -= delta;
+                        }
+                        return adjusted;
+                    }
+
+                    window.onerror = function (message, source, lineno, colno, error) {
+                        const adjustedLineno = adjustLineNumber(lineno);
+                        window.parent.postMessage({
+                            type: 'iframe-error',
+                            message: message,
+                            source: source,
+                            lineno: lineno,
+                            adjustedLineno: adjustedLineno
+                        }, '*');
+                        return true;
+                    };
+                })();
             </script >`;
 
         function extract_js(html_string) {
@@ -224,7 +256,6 @@ async function main() {
             }
             if ((storage.get().codes[0] ?? "") !== editor.getValue()) {
                 const saved_storage_info = storage.save(editor.getValue());
-                // console.log(combobox.get_item())
                 if (combobox.get_item() === undefined) {
                     combobox.add_item(saved_storage_info);
                     combobox.set_item({ id: saved_storage_info.id });
@@ -252,10 +283,9 @@ async function main() {
                 if (params.safe_mode === false) {
                     const files = storage.list().reduce((a, e) => ({ ...a, [e.name]: removeLineComments(e.codes[0] ?? "") }), {});
                     const with_importmap_html = html_strings.replace(/(<html[^>]*>)/i, `$1${build_importmap(files)}`);
-                    // const inlined_html = inlineHTML(with_importmap_html, 'localhost/', files);
-                    const inlined_html = inlineHTML(with_importmap_html, files);
-console.log(inlined_html)
-                    const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${iframeErrorHandlerScript}`);
+                    const { html: inlined_html, insertions } = inlineHTML(with_importmap_html, files);
+                    const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript(insertions)}`);
+// console.log(with_error_handler_html)
                     editor_output.srcdoc = with_error_handler_html;
                 }
             })

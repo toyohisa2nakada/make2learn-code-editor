@@ -5,13 +5,14 @@
  * 元の行数を維持するために空行を追加します。
  */
 
-export function inlineHTML(htmlString, /*key,*/ contentMap0) {
+export function inlineHTML(htmlString, contentMap0) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlString, 'text/html');
-    const contentMap1 = Object.entries(contentMap0).reduce((a, [k, v]) => ({ ...a, [k]: v.replace(/(\r\n|\n|\r)/g, '') }), {});
+    const contentMap1 = Object.entries(contentMap0).reduce((a, [k, v]) => ({ ...a, [k]: normalizeLineBreaks(v) }), {});
 
     // 処理対象のタグ情報を収集
     const replacements = [];
+    const insertionRecords = [];
 
     // <link>タグを検索
     // const links = doc.querySelectorAll(`link[href^="${key}"]`);
@@ -20,7 +21,6 @@ export function inlineHTML(htmlString, /*key,*/ contentMap0) {
         // const href = link.getAttribute('href');
         // const path = href.replace(new RegExp(`^${key}`), '');
         const href = link.getAttribute('href');
-console.log(href);
 
         if (!/[\/\\:?#]/.test(href) && href in contentMap1) {
             replacements.push({
@@ -38,12 +38,9 @@ console.log(href);
     const scripts = doc.querySelectorAll(`script[src]`);
     scripts.forEach(script => {
         const src = script.getAttribute('src');
-        // const path = src.replace(new RegExp(`^${key}`), '');
-        // const content = contentMap1[path];
-console.log(src)
 
         // if (content !== undefined) {
-        if(!/[\/\\:?#]/.test(src) && src in contentMap1) {
+        if (!/[\/\\:?#]/.test(src) && src in contentMap1) {
             replacements.push({
                 element: script,
                 content: contentMap1[src],
@@ -62,11 +59,15 @@ console.log(src)
         const tagInfo = findTagInHTML(lines, replacement);
 
         if (tagInfo) {
-            lines = replaceTagWithContent(lines, tagInfo, replacement);
+            const result = replaceTagWithContent(lines, tagInfo, replacement);
+            lines = result.lines;
+            if (result.record) {
+                insertionRecords.push(result.record);
+            }
         }
     });
 
-    return lines.join('\n');
+    return { html: lines.join('\n'), insertions: insertionRecords };
 }
 
 /**
@@ -96,7 +97,11 @@ function findTagInHTML(lines, replacement) {
             }
 
             // このタグに目的の属性が含まれているか確認
-            if (openTagEnd !== -1 && tagContent.includes(searchAttr)) {
+            if (openTagEnd !== -1) {
+                const openTagContent = extractOpenTag(tagContent);
+                if (!openTagContent || !hasAttributeValue(openTagContent, type, searchAttr)) {
+                    continue;
+                }
                 const indent = lines[startLine].match(/^(\s*)/)[1];
 
                 // linkタグの場合は自己閉じタグなので開始タグの終了まで
@@ -111,11 +116,11 @@ function findTagInHTML(lines, replacement) {
 
                 // scriptタグの場合は</script>まで探す
                 if (type === 'script') {
-                    // 開始タグと同じ行に</script>がある場合
+                    // 開始タグと同じ行に</script>がある場合␊
                     if (lines[openTagEnd].includes('</script>')) {
                         closeTagEnd = openTagEnd;
                     } else {
-                        // </script>を探す
+                        // </script>を探す␊
                         for (let j = openTagEnd + 1; j < lines.length; j++) {
                             if (lines[j].includes('</script>')) {
                                 closeTagEnd = j;
@@ -144,27 +149,63 @@ function findTagInHTML(lines, replacement) {
  * タグをコンテンツで置換し、行数を維持
  */
 function replaceTagWithContent(lines, tagInfo, replacement) {
-    const { startLine, endLine, lineCount, indent } = tagInfo;
+    const { startLine, lineCount, indent } = tagInfo;
     const { content, type } = replacement;
 
-    // 新しいタグを生成
-    const newTag = type === 'link'
-        ? `${indent}<style>${content}</style>`
-        : `${indent}<script>${content}</script>`;
-
-    // 置換後の行を生成
-    const newLines = [newTag];
-
-    // 行数を維持するために空行を追加
-    const emptyLinesToAdd = lineCount - 1;
-    for (let i = 0; i < emptyLinesToAdd; i++) {
-        newLines.push('');
+    const tagName = type === 'link' ? 'style' : 'script';
+    const contentIndent = indent + '    ';
+    const normalizedContent = normalizeLineBreaks(content);
+    let contentLines = normalizedContent.split('\n');
+    if (contentLines.length === 1 && contentLines[0] === '') {
+        contentLines = [];
     }
 
-    // 元の行を置換
+    const newLines = [`${indent}<${tagName}>`];
+    contentLines.forEach(line => {
+        if (line === '') {
+            newLines.push('');
+        } else {
+            newLines.push(`${contentIndent}${line}`);
+        }
+    });
+    newLines.push(`${indent}</${tagName}>`);
+
     lines.splice(startLine, lineCount, ...newLines);
 
-    return lines;
+    const newLineCount = newLines.length;
+    const addedLineCount = Math.max(0, newLineCount - lineCount);
+
+    return {
+        lines,
+        record: {
+            startLine: startLine + 1,
+            originalLineCount: lineCount,
+            addedLineCount,
+        }
+    };
+}
+
+function normalizeLineBreaks(text) {
+    return text.replace(/\r\n?|\n/g, '\n');
+}
+
+function extractOpenTag(tagContent) {
+    const closeIndex = tagContent.indexOf('>');
+    if (closeIndex === -1) {
+        return null;
+    }
+
+    return tagContent.slice(0, closeIndex + 1);
+}
+
+function hasAttributeValue(openTagContent, type, searchAttr) {
+    const attrName = type === 'link' ? 'href' : 'src';
+    const pattern = new RegExp(`${attrName}\\s*=\\s*(["'])${escapeRegExp(searchAttr)}\\1`, 'i');
+    return pattern.test(openTagContent);
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // debug用
@@ -195,9 +236,10 @@ export function test() {
         'scripts/utils.js': 'function helper(){return true}'
     };
 
-    const result = inlineHTML(htmlString, 'localhost/', contentMap);
-    console.log(result);
+    const { html, insertions } = inlineHTML(htmlString, contentMap);
+    console.log(html);
     console.log('\n--- 行数比較 ---');
     console.log('元の行数:', htmlString.split('\n').length);
-    console.log('処理後の行数:', result.split('\n').length);
+    console.log('処理後の行数:', html.split('\n').length);
+    console.log('挿入記録:', insertions);
 }
