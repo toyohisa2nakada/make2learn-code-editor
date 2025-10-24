@@ -283,7 +283,10 @@ async function main() {
                 if (params.safe_mode === false) {
                     const files = storage.list().reduce((a, e) => ({ ...a, [e.name]: removeLineComments(e.codes[0] ?? "") }), {});
                     const with_importmap_html = html_strings.replace(/(<html[^>]*>)/i, `$1${build_importmap(files)}`);
+console.log(with_importmap_html)
                     const { html: inlined_html, insertions } = inlineHTML(with_importmap_html, files);
+console.log(insertions)
+console.log(inlined_html)
                     const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript(insertions)}`);
 // console.log(with_error_handler_html)
                     editor_output.srcdoc = with_error_handler_html;
