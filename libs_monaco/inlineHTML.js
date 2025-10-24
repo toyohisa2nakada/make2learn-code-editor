@@ -199,15 +199,12 @@ function replaceTagWithContent(lines, tagInfo, replacement) {
 
     lines.splice(startLine, lineCount, ...newLines);
 
-    const newLineCount = newLines.length;
-    const addedLineCount = Math.max(0, newLineCount - lineCount);
-
     return {
         lines,
         record: {
-            startLine: tagInfo.startLine + 1,
+            startLine: tagInfo.startLine,
             originalLineCount: tagInfo.lineCount,
-            addedLineCount,
+            newLineCount: newLines.length,
         }
     };
 }

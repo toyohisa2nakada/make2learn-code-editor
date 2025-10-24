@@ -182,11 +182,23 @@ async function main() {
         window.addEventListener('message', e => {
             if (e.data && e.data.type === 'iframe-error') {
                 const info = e.data;
-                const lineno = info.adjustedLineno ?? info.lineno;
-                set_error_in_iframe({ lineno, message: info.message })
+                set_error_in_iframe({ lineno: info.lineno, message: info.message })
             }
         })
         // iframe側でエラーを送信するコード、これをユーザの作成したものに埋め込む
+        const buildIframeErrorHandlerScript = `<script>
+            (function () {
+                window.onerror = function (message, source, lineno, colno, error) {
+                    window.parent.postMessage({
+                        type: 'iframe-error',
+                        message,
+                        source,
+                        lineno,
+                    },'*');
+                };
+            })();
+            </script >`.replace(/[\r\n\t ]+/g, "");
+        /*
         const buildIframeErrorHandlerScript = (lineAdjustments) => `
             <script>
                 (function () {
@@ -231,6 +243,7 @@ async function main() {
                     };
                 })();
             </script >`;
+        */
 
         function extract_js(html_string) {
             const doc = (new DOMParser()).parseFromString(html_string, 'text/html');
@@ -283,12 +296,8 @@ async function main() {
                 if (params.safe_mode === false) {
                     const files = storage.list().reduce((a, e) => ({ ...a, [e.name]: removeLineComments(e.codes[0] ?? "") }), {});
                     const with_importmap_html = html_strings.replace(/(<html[^>]*>)/i, `$1${build_importmap(files)}`);
-console.log(with_importmap_html)
                     const { html: inlined_html, insertions } = inlineHTML(with_importmap_html, files);
-console.log(insertions)
-console.log(inlined_html)
-                    const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript(insertions)}`);
-// console.log(with_error_handler_html)
+                    const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript}`);
                     editor_output.srcdoc = with_error_handler_html;
                 }
             })
