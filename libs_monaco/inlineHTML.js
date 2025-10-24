@@ -12,7 +12,6 @@ export function inlineHTML(htmlString, contentMap0) {
 
     // 処理対象のタグ情報を収集
     const replacements = [];
-    const insertionRecords = [];
 
     // <link>タグを検索
     const links = doc.querySelectorAll(`link[href]`);
@@ -46,19 +45,33 @@ export function inlineHTML(htmlString, contentMap0) {
         }
     });
 
-    // 元のHTML文字列で各タグの位置と行数を特定して置換
-    let lines = htmlString.split('\n');
-
-    // 各置換対象について処理
-    replacements.forEach(replacement => {
-        const tagInfo = findTagInHTML(lines, replacement);
-
-        if (tagInfo) {
-            const result = replaceTagWithContent(lines, tagInfo, replacement);
-            lines = result.lines;
-            if (result.record) {
-                insertionRecords.push(result.record);
+    // 元のHTML文字列の行情報を保持しつつ置換を適用
+    const originalLines = htmlString.split('\n');
+    const replacementsWithInfo = replacements
+        .map(replacement => {
+            const tagInfo = findTagInHTML(originalLines, replacement);
+            if (!tagInfo) {
+                return null;
             }
+
+            return { ...replacement, tagInfo };
+        })
+        .filter(Boolean);
+
+    let lines = originalLines.slice();
+
+    const sortedReplacements = [...replacementsWithInfo].sort((a, b) => b.tagInfo.startLine - a.tagInfo.startLine);
+    sortedReplacements.forEach(replacement => {
+        const result = replaceTagWithContent(lines, replacement.tagInfo, replacement);
+        if (result.record) {
+            replacement.record = result.record;
+        }
+    });
+
+    const insertionRecords = [];
+    replacementsWithInfo.forEach(replacement => {
+        if (replacement.record) {
+            insertionRecords.push(replacement.record);
         }
     });
 
@@ -101,11 +114,17 @@ function findTagInHTML(lines, replacement) {
 
                 // linkタグの場合は自己閉じタグなので開始タグの終了まで
                 if (type === 'link') {
+                    const closingLine = lines[openTagEnd];
+                    const tagCloseIndex = closingLine.indexOf('>');
+                    const trailingText = tagCloseIndex !== -1 && tagCloseIndex + 1 < closingLine.length
+                        ? closingLine.slice(tagCloseIndex + 1)
+                        : '';
                     return {
                         startLine: startLine,
                         endLine: openTagEnd,
                         lineCount: openTagEnd - startLine + 1,
-                        indent: indent
+                        indent: indent,
+                        trailingText
                     };
                 }
 
@@ -125,11 +144,19 @@ function findTagInHTML(lines, replacement) {
                     }
 
                     if (closeTagEnd !== -1) {
+                        const closingLine = lines[closeTagEnd];
+                        const lowerClosingLine = closingLine.toLowerCase();
+                        const closingToken = '</script>';
+                        const closeIndex = lowerClosingLine.indexOf(closingToken);
+                        const trailingText = closeIndex !== -1 && closeIndex + closingToken.length < closingLine.length
+                            ? closingLine.slice(closeIndex + closingToken.length)
+                            : '';
                         return {
                             startLine: startLine,
                             endLine: closeTagEnd,
                             lineCount: closeTagEnd - startLine + 1,
-                            indent: indent
+                            indent: indent,
+                            trailingText
                         };
                     }
                 }
@@ -144,7 +171,7 @@ function findTagInHTML(lines, replacement) {
  * タグをコンテンツで置換し、行数を維持
  */
 function replaceTagWithContent(lines, tagInfo, replacement) {
-    const { startLine, lineCount, indent } = tagInfo;
+    const { startLine, lineCount, indent, trailingText = '' } = tagInfo;
     const { content, type } = replacement;
 
     const tagName = type === 'link' ? 'style' : 'script';
@@ -165,6 +192,11 @@ function replaceTagWithContent(lines, tagInfo, replacement) {
     });
     newLines.push(`${indent}</${tagName}>`);
 
+    if (trailingText) {
+        const lastIndex = newLines.length - 1;
+        newLines[lastIndex] = `${newLines[lastIndex]}${trailingText}`;
+    }
+
     lines.splice(startLine, lineCount, ...newLines);
 
     const newLineCount = newLines.length;
@@ -173,8 +205,8 @@ function replaceTagWithContent(lines, tagInfo, replacement) {
     return {
         lines,
         record: {
-            startLine: startLine + 1,
-            originalLineCount: lineCount,
+            startLine: tagInfo.startLine + 1,
+            originalLineCount: tagInfo.lineCount,
             addedLineCount,
         }
     };
