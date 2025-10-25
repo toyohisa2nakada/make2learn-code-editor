@@ -127,16 +127,18 @@ function findTagInHTML(lines, replacement) {
             const indentSource = lines[startLine].slice(0, column);
             const indentMatch = indentSource.match(/\s*$/);
             const indent = indentMatch ? indentMatch[0] : '';
+            const prefixText = indentSource.slice(0, indentSource.length - indent.length);
 
             if (type === 'link') {
-                return {
-                    startLine,
-                    endLine: openTagEnd,
-                    lineCount: openTagEnd - startLine + 1,
-                    indent,
-                    trailingText: trailingTextAfterOpen,
-                    startColumn: column,
-                };
+                    return {
+                        startLine,
+                        endLine: openTagEnd,
+                        lineCount: openTagEnd - startLine + 1,
+                        indent,
+                        prefixText,
+                        trailingText: trailingTextAfterOpen,
+                        startColumn: column,
+                    };
             }
 
             if (type === 'script') {
@@ -167,6 +169,7 @@ function findTagInHTML(lines, replacement) {
                         endLine: closeTagEnd,
                         lineCount: closeTagEnd - startLine + 1,
                         indent,
+                        prefixText,
                         trailingText,
                         startColumn: column,
                     };
@@ -182,7 +185,7 @@ function findTagInHTML(lines, replacement) {
  * タグをコンテンツで置換し、行数を維持
  */
 function replaceTagWithContent(lines, tagInfo, replacement) {
-    const { startLine, lineCount, indent, trailingText = '', startColumn = 0 } = tagInfo;
+    const { startLine, lineCount, indent, trailingText = '', startColumn = 0, prefixText = '' } = tagInfo;
     const { content, type } = replacement;
 
     const tagName = type === 'link' ? 'style' : 'script';
@@ -202,6 +205,10 @@ function replaceTagWithContent(lines, tagInfo, replacement) {
         }
     });
     newLines.push(`${indent}</${tagName}>`);
+
+    if (prefixText) {
+        newLines[0] = `${prefixText}${newLines[0]}`;
+    }
 
     if (trailingText) {
         const lastIndex = newLines.length - 1;
