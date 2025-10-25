@@ -87,78 +87,89 @@ function findTagInHTML(lines, replacement) {
     const tagStart = type === 'link' ? '<link' : '<script';
 
     for (let i = 0; i < lines.length; i++) {
-        // タグの開始を検出
-        if (lines[i].includes(tagStart)) {
-            let startLine = i;
+        const line = lines[i];
+        let searchIndex = 0;
+
+        while (true) {
+            const column = line.indexOf(tagStart, searchIndex);
+            if (column === -1) {
+                break;
+            }
+            searchIndex = column + tagStart.length;
+
+            const startLine = i;
             let openTagEnd = -1;
             let closeTagEnd = -1;
             let tagContent = '';
+            let trailingTextAfterOpen = '';
 
-            // 開始タグの終了を探す
             for (let j = i; j < lines.length; j++) {
-                tagContent += lines[j];
+                const segment = j === i ? lines[j].slice(column) : lines[j];
+                tagContent += segment;
 
-                if (lines[j].includes('>')) {
+                const closeIndexInSegment = segment.indexOf('>');
+                if (closeIndexInSegment !== -1) {
                     openTagEnd = j;
+                    trailingTextAfterOpen = segment.slice(closeIndexInSegment + 1);
                     break;
                 }
             }
 
-            // このタグに目的の属性が含まれているか確認
-            if (openTagEnd !== -1) {
-                const openTagContent = extractOpenTag(tagContent);
-                if (!openTagContent || !hasAttributeValue(openTagContent, type, searchAttr)) {
-                    continue;
-                }
-                const indent = lines[startLine].match(/^(\s*)/)[1];
+            if (openTagEnd === -1) {
+                continue;
+            }
 
-                // linkタグの場合は自己閉じタグなので開始タグの終了まで
-                if (type === 'link') {
-                    const closingLine = lines[openTagEnd];
-                    const tagCloseIndex = closingLine.indexOf('>');
-                    const trailingText = tagCloseIndex !== -1 && tagCloseIndex + 1 < closingLine.length
-                        ? closingLine.slice(tagCloseIndex + 1)
-                        : '';
-                    return {
-                        startLine: startLine,
-                        endLine: openTagEnd,
-                        lineCount: openTagEnd - startLine + 1,
-                        indent: indent,
-                        trailingText
-                    };
-                }
+            const openTagContent = extractOpenTag(tagContent);
+            if (!openTagContent || !hasAttributeValue(openTagContent, type, searchAttr)) {
+                continue;
+            }
 
-                // scriptタグの場合は</script>まで探す
-                if (type === 'script') {
-                    // 開始タグと同じ行に</script>がある場合␊
-                    if (lines[openTagEnd].includes('</script>')) {
-                        closeTagEnd = openTagEnd;
-                    } else {
-                        // </script>を探す␊
-                        for (let j = openTagEnd + 1; j < lines.length; j++) {
-                            if (lines[j].includes('</script>')) {
-                                closeTagEnd = j;
-                                break;
-                            }
+            const indentSource = lines[startLine].slice(0, column);
+            const indentMatch = indentSource.match(/\s*$/);
+            const indent = indentMatch ? indentMatch[0] : '';
+
+            if (type === 'link') {
+                return {
+                    startLine,
+                    endLine: openTagEnd,
+                    lineCount: openTagEnd - startLine + 1,
+                    indent,
+                    trailingText: trailingTextAfterOpen,
+                    startColumn: column,
+                };
+            }
+
+            if (type === 'script') {
+                const openTagLineSegment = lines[openTagEnd].slice(openTagEnd === startLine ? column : 0);
+                if (openTagLineSegment.toLowerCase().includes('</script>')) {
+                    closeTagEnd = openTagEnd;
+                } else {
+                    for (let j = openTagEnd + 1; j < lines.length; j++) {
+                        if (lines[j].toLowerCase().includes('</script>')) {
+                            closeTagEnd = j;
+                            break;
                         }
                     }
+                }
 
-                    if (closeTagEnd !== -1) {
-                        const closingLine = lines[closeTagEnd];
-                        const lowerClosingLine = closingLine.toLowerCase();
-                        const closingToken = '</script>';
-                        const closeIndex = lowerClosingLine.indexOf(closingToken);
-                        const trailingText = closeIndex !== -1 && closeIndex + closingToken.length < closingLine.length
-                            ? closingLine.slice(closeIndex + closingToken.length)
-                            : '';
-                        return {
-                            startLine: startLine,
-                            endLine: closeTagEnd,
-                            lineCount: closeTagEnd - startLine + 1,
-                            indent: indent,
-                            trailingText
-                        };
-                    }
+                if (closeTagEnd !== -1) {
+                    const closingLineSegment = closeTagEnd === startLine
+                        ? lines[closeTagEnd].slice(column)
+                        : lines[closeTagEnd];
+                    const lowerClosingSegment = closingLineSegment.toLowerCase();
+                    const closingToken = '</script>';
+                    const closeIndex = lowerClosingSegment.indexOf(closingToken);
+                    const trailingText = closeIndex !== -1 && closeIndex + closingToken.length < closingLineSegment.length
+                        ? closingLineSegment.slice(closeIndex + closingToken.length)
+                        : '';
+                    return {
+                        startLine,
+                        endLine: closeTagEnd,
+                        lineCount: closeTagEnd - startLine + 1,
+                        indent,
+                        trailingText,
+                        startColumn: column,
+                    };
                 }
             }
         }
@@ -171,7 +182,7 @@ function findTagInHTML(lines, replacement) {
  * タグをコンテンツで置換し、行数を維持
  */
 function replaceTagWithContent(lines, tagInfo, replacement) {
-    const { startLine, lineCount, indent, trailingText = '' } = tagInfo;
+    const { startLine, lineCount, indent, trailingText = '', startColumn = 0 } = tagInfo;
     const { content, type } = replacement;
 
     const tagName = type === 'link' ? 'style' : 'script';
@@ -203,6 +214,7 @@ function replaceTagWithContent(lines, tagInfo, replacement) {
         lines,
         record: {
             startLine: tagInfo.startLine,
+            startColumn,
             originalLineCount: tagInfo.lineCount,
             newLineCount: newLines.length,
         }
