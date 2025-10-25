@@ -178,11 +178,47 @@ async function main() {
             console_elem.textContent = `L${lineno}:${colno} ${message}`;
         }
 
+        let latest_insertions = [];
+
+        function convert_iframe_error_position(lineno, colno) {
+            const line_number = Number(lineno);
+            const column_number = Number(colno);
+            if (!Number.isFinite(line_number) || !Number.isFinite(column_number)) {
+                return { lineno, colno };
+            }
+
+            let line_index = line_number - 1;
+            let column_index = column_number - 1;
+            const sorted_insertions = [...latest_insertions].sort((a, b) => a.startLine - b.startLine);
+
+            for (const insertion of sorted_insertions) {
+                const diff = insertion.newLineCount - insertion.originalLineCount;
+                const start = insertion.startLine;
+                const end = insertion.startLine + insertion.newLineCount - 1;
+
+                if (line_index < start) {
+                    continue;
+                }
+
+                if (line_index > end) {
+                    line_index -= diff;
+                    continue;
+                }
+
+                line_index = start;
+                column_index = insertion.startColumn;
+                return { lineno: line_index + 1, colno: column_index + 1 };
+            }
+
+            return { lineno: line_index + 1, colno: column_index + 1 };
+        }
+
         // iframeからのエラーの受信
         window.addEventListener('message', e => {
             if (e.data && e.data.type === 'iframe-error') {
                 const info = e.data;
-                set_error_in_iframe({ lineno: info.lineno, colno: info.colno, message: info.message })
+                const { lineno, colno } = convert_iframe_error_position(info.lineno, info.colno);
+                set_error_in_iframe({ lineno, colno, message: info.message })
             }
         })
         // iframe側でエラーを送信するコード、これをユーザの作成したものに埋め込む
@@ -252,6 +288,7 @@ async function main() {
                     const files = storage.list().reduce((a, e) => ({ ...a, [e.name]: removeLineComments(e.codes[0] ?? "") }), {});
                     const with_importmap_html = html_strings.replace(/(<html[^>]*>)/i, `$1${build_importmap(files)}`);
                     const { html: inlined_html, insertions } = inlineHTML(with_importmap_html, files);
+                    latest_insertions = insertions ?? [];
                     const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript}`);
                     editor_output.srcdoc = with_error_handler_html;
                 }
