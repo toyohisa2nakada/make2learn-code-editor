@@ -10,8 +10,21 @@ const createMockGlobals = () => {
         'add', 'remove', 'toggle', 'contains', 'replace', 'item', // classList
         'getPropertyValue','setProperty','removeProperty', // style
     ]);
+    const element_textProps = new Set([
+        'textContent', 'innerHTML', 'innerText', 'outerHTML', 'value',
+        'placeholder', 'title'
+    ]);
     const mockElement = new Proxy({}, {
         get(target, prop) {
+            if (prop === Symbol.toPrimitive) {
+                return () => '';
+            }
+            if (prop === 'valueOf' || prop === 'toString') {
+                return () => '';
+            }
+            if (element_textProps.has(prop)) {
+                return '';
+            }
             if (element_mockFn.has(prop)) {
                 return (...args) => mockElement;
             }
@@ -21,8 +34,8 @@ const createMockGlobals = () => {
     });
     const document = new Proxy({}, {
         get(target, prop) {
-            if (prop.includes('Element') || prop.includes('querySelector') ||
-                prop === 'createElement') {
+            if (typeof prop === 'string' && (prop.includes('Element') || prop.includes('querySelector') ||
+                prop === 'createElement')) {
                 return () => mockElement;
             }
             return mockElement;
