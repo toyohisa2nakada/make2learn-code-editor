@@ -174,15 +174,15 @@ async function main() {
             editor.layout({ width, height });
         }, 0);
 
-        function set_error_in_iframe({ lineno, message }) {
-            console_elem.textContent = `L${lineno} ${message}`;
+        function set_error_in_iframe({ lineno, colno, message }) {
+            console_elem.textContent = `L${lineno}:${colno} ${message}`;
         }
 
         // iframeからのエラーの受信
         window.addEventListener('message', e => {
             if (e.data && e.data.type === 'iframe-error') {
                 const info = e.data;
-                set_error_in_iframe({ lineno: info.lineno, message: info.message })
+                set_error_in_iframe({ lineno: info.lineno, colno: info.colno, message: info.message })
             }
         })
         // iframe側でエラーを送信するコード、これをユーザの作成したものに埋め込む
@@ -194,56 +194,11 @@ async function main() {
                         message,
                         source,
                         lineno,
+                        colno,
                     },'*');
                 };
             })();
             </script >`.replace(/[\r\n\t ]+/g, "");
-        /*
-        const buildIframeErrorHandlerScript = (lineAdjustments) => `
-            <script>
-                (function () {
-                    const adjustments = ${JSON.stringify(lineAdjustments ?? [])};
-                    function adjustLineNumber(lineno) {
-                        if (typeof lineno !== 'number') {
-                            return lineno;
-                        }
-                        let adjusted = lineno;
-                        for (const entry of adjustments) {
-                            if (!entry) {
-                                continue;
-                            }
-                            const startLine = Number(entry.startLine);
-                            const addedLineCount = Number(entry.addedLineCount);
-                            const originalLineCount = Number(entry.originalLineCount);
-                            if (!Number.isFinite(startLine) || !Number.isFinite(addedLineCount)) {
-                                continue;
-                            }
-                            if (lineno < startLine || addedLineCount <= 0) {
-                                continue;
-                            }
-                            const normalizedOriginalCount = Number.isFinite(originalLineCount) && originalLineCount > 0 ? originalLineCount : 1;
-                            const originalEndLine = startLine + normalizedOriginalCount - 1;
-                            const overrun = Math.max(0, lineno - originalEndLine);
-                            const delta = Math.min(addedLineCount, overrun);
-                            adjusted -= delta;
-                        }
-                        return adjusted;
-                    }
-
-                    window.onerror = function (message, source, lineno, colno, error) {
-                        const adjustedLineno = adjustLineNumber(lineno);
-                        window.parent.postMessage({
-                            type: 'iframe-error',
-                            message: message,
-                            source: source,
-                            lineno: lineno,
-                            adjustedLineno: adjustedLineno
-                        }, '*');
-                        return true;
-                    };
-                })();
-            </script >`;
-        */
 
         function extract_js(html_string) {
             const doc = (new DOMParser()).parseFromString(html_string, 'text/html');
@@ -284,7 +239,7 @@ async function main() {
                 console.log("TIMEOUT!!!");
                 worker.terminate();
                 worker = undefined;
-                set_error_in_iframe({ lineno: '?', message: "JavaScriptが終了しません" });
+                set_error_in_iframe({ lineno: '?', colno: '?', message: "JavaScriptが終了しません" });
                 storage.undo(timeout_target_id);
             }, 2000);
             worker.addEventListener('message', e => {
