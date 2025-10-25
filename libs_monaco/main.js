@@ -290,6 +290,7 @@ async function main() {
                     const { html: inlined_html, insertions } = inlineHTML(with_importmap_html, files);
                     latest_insertions = insertions ?? [];
                     const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript}`);
+console.log(with_error_handler_html)
                     editor_output.srcdoc = with_error_handler_html;
                 }
             })
@@ -357,4 +358,3 @@ if (html_params.check_code) {
 } else {
     await main();
 }
-
