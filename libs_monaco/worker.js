@@ -89,4 +89,3 @@ self.addEventListener('message', (event) => {
         self.postMessage({ status: 'error', message: e.message });
     }
 });
-
