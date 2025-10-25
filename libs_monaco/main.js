@@ -188,8 +188,8 @@ async function main() {
             }
 
             let line_index = line_number - 1;
-            let column_index = column_number - 1;
-            const sorted_insertions = [...latest_insertions].sort((a, b) => a.startLine - b.startLine);
+            const sorted_insertions = [...latest_insertions]
+                .sort((a, b) => a.startLine - b.startLine || a.startColumn - b.startColumn);
 
             for (const insertion of sorted_insertions) {
                 const diff = insertion.newLineCount - insertion.originalLineCount;
@@ -206,11 +206,10 @@ async function main() {
                 }
 
                 line_index = start;
-                column_index = insertion.startColumn;
-                return { lineno: line_index + 1, colno: column_index + 1 };
+                return { lineno: line_index + 1, colno };
             }
 
-            return { lineno: line_index + 1, colno: column_index + 1 };
+            return { lineno: line_index + 1, colno };
         }
 
         // iframeからのエラーの受信
