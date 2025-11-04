@@ -137,7 +137,7 @@ async function main() {
     const { init_title_safe } = init_safemode();
 
     function init_title_message(elem) {
-        elem.textContent = 'Ctrl+↑, Ctrl+↓ キーで文字サイズが変わります。';
+        // elem.textContent = 'Ctrl+↑, Ctrl+↓ キーで文字サイズが変わります。';
     }
     if (params.safe_mode) {
         init_title_safe(document.getElementById("message"));
@@ -167,6 +167,21 @@ async function main() {
             editor.updateOptions({ fontSize: fontSize0 });
         });
         registerDocumentFormattingEditProvider_html();
+
+        // メニューからfontsizeの変更
+        const appMenuElement = document.querySelector('app-menu');
+        if (appMenuElement) {
+            const handleFontSizeChange = (event) => {
+                const direction = event.detail?.direction;
+                const currentSize = editor.getOption(monaco.editor.EditorOption.fontSize);
+                if (direction === 'increase') {
+                    editor.updateOptions({ fontSize: currentSize + 1 });
+                } else if (direction === 'decrease') {
+                    editor.updateOptions({ fontSize: Math.max(6, currentSize - 1) });
+                }
+            };
+            appMenuElement.addEventListener('font-size-change', handleFontSizeChange);
+        }
 
         (new ResizeObserver(() => {
             editor_resized_timer.set();
@@ -292,7 +307,7 @@ async function main() {
                     const { html: inlined_html, insertions } = inlineHTML(with_importmap_html, files);
                     latest_insertions = insertions ?? [];
                     const with_error_handler_html = inlined_html.replace(/(<html[^>]*>)/i, `$1${buildIframeErrorHandlerScript}`);
-console.log(with_error_handler_html)
+                    console.log(with_error_handler_html)
                     editor_output.srcdoc = with_error_handler_html;
                 }
             })
