@@ -34,6 +34,9 @@ async function main() {
     // htmlの上下左右のパネルがあるframe処理のロード
     await import('./frame.js');
 
+    // 画面にメニューを追加するコード
+    await import('./app_menu.js');
+
     // 新しい設定時に前のタイマーを自動で止めて作り直すタイマー
     function build_timer(cb, msec) {
         let timer_id = undefined;
