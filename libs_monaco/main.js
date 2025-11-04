@@ -33,7 +33,7 @@ async function main() {
 
     // htmlの上下左右のパネルがあるframe処理のロード
     await import('./frame.js');
-    await import('./topMenu.js');
+    await import('./menu.js');
 
     // 新しい設定時に前のタイマーを自動で止めて作り直すタイマー
     function build_timer(cb, msec) {
