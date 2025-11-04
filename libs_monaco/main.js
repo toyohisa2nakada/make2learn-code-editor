@@ -168,6 +168,20 @@ async function main() {
         });
         registerDocumentFormattingEditProvider_html();
 
+        const appMenuElement = document.querySelector('app-menu');
+        if (appMenuElement) {
+            const handleFontSizeChange = (event) => {
+                const direction = event.detail?.direction;
+                const currentSize = editor.getOption(monaco.editor.EditorOption.fontSize);
+                if (direction === 'increase') {
+                    editor.updateOptions({ fontSize: currentSize + 1 });
+                } else if (direction === 'decrease') {
+                    editor.updateOptions({ fontSize: Math.max(6, currentSize - 1) });
+                }
+            };
+            appMenuElement.addEventListener('font-size-change', handleFontSizeChange);
+        }
+
         (new ResizeObserver(() => {
             editor_resized_timer.set();
         })).observe(editor_container_elem);

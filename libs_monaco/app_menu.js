@@ -172,6 +172,45 @@ class AppMenu extends HTMLElement {
 .menu__item:focus {
     background-color: #ffe9de;
 }
+
+.menu__submenu-wrapper {
+    position: relative;
+}
+
+.menu__item--has-submenu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-right: 16px;
+}
+
+.menu__item-arrow {
+    font-size: 0.7rem;
+    opacity: 0.6;
+}
+
+.menu__submenu {
+    position: absolute;
+    top: 0;
+    left: calc(100% - 8px);
+    margin-left: 8px;
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    min-width: 120px;
+    padding: 4px 0;
+    z-index: 1000;
+}
+
+.menu__submenu[hidden] {
+    display: none;
+}
+
+.menu__submenu-item {
+    width: 100%;
+}
         `;
 
         const container = document.createElement('div');
@@ -198,12 +237,46 @@ class AppMenu extends HTMLElement {
         settingsItem.setAttribute('role', 'menuitem');
         dropdown.appendChild(settingsItem);
 
-        const fontSizeUpItem = document.createElement('button');
-        fontSizeUpItem.type = 'button';
-        fontSizeUpItem.className = 'menu__item';
-        fontSizeUpItem.textContent = 'フォントサイズ大きく';
-        fontSizeUpItem.setAttribute('role', 'menuitem');
-        dropdown.appendChild(fontSizeUpItem);
+        const fontSizeWrapper = document.createElement('div');
+        fontSizeWrapper.className = 'menu__submenu-wrapper';
+
+        const fontSizeItem = document.createElement('div');
+        fontSizeItem.className = 'menu__item menu__item--has-submenu';
+        fontSizeItem.setAttribute('role', 'menuitem');
+        fontSizeItem.setAttribute('aria-haspopup', 'true');
+        fontSizeItem.setAttribute('aria-expanded', 'false');
+        fontSizeItem.setAttribute('tabindex', '0');
+
+        const fontSizeLabel = document.createElement('span');
+        fontSizeLabel.textContent = 'フォントサイズ';
+
+        const fontSizeArrow = document.createElement('span');
+        fontSizeArrow.className = 'menu__item-arrow';
+        fontSizeArrow.setAttribute('aria-hidden', 'true');
+        fontSizeArrow.textContent = '>';
+
+        fontSizeItem.append(fontSizeLabel, fontSizeArrow);
+
+        const fontSizeSubmenu = document.createElement('div');
+        fontSizeSubmenu.className = 'menu__submenu';
+        fontSizeSubmenu.setAttribute('role', 'menu');
+        fontSizeSubmenu.hidden = true;
+
+        const fontSizeIncreaseItem = document.createElement('button');
+        fontSizeIncreaseItem.type = 'button';
+        fontSizeIncreaseItem.className = 'menu__item menu__submenu-item';
+        fontSizeIncreaseItem.textContent = '大きく';
+        fontSizeIncreaseItem.setAttribute('role', 'menuitem');
+
+        const fontSizeDecreaseItem = document.createElement('button');
+        fontSizeDecreaseItem.type = 'button';
+        fontSizeDecreaseItem.className = 'menu__item menu__submenu-item';
+        fontSizeDecreaseItem.textContent = '小さく';
+        fontSizeDecreaseItem.setAttribute('role', 'menuitem');
+
+        fontSizeSubmenu.append(fontSizeIncreaseItem, fontSizeDecreaseItem);
+        fontSizeWrapper.append(fontSizeItem, fontSizeSubmenu);
+        dropdown.appendChild(fontSizeWrapper);
 
         container.append(menuButton, dropdown);
 
@@ -212,6 +285,8 @@ class AppMenu extends HTMLElement {
         this.menuButton = menuButton;
         this.dropdown = dropdown;
         this.settingsItem = settingsItem;
+        this.fontSizeSubmenu = fontSizeSubmenu;
+        this.fontSizeItem = fontSizeItem;
 
         this.menuButton.setAttribute('aria-controls', dropdown.id);
 
@@ -231,6 +306,71 @@ class AppMenu extends HTMLElement {
         });
 
         this.settingsItem.addEventListener('click', this.handleSettingsClick);
+
+        const openFontSizeSubmenu = () => {
+            fontSizeSubmenu.hidden = false;
+            fontSizeItem.setAttribute('aria-expanded', 'true');
+        };
+
+        const closeFontSizeSubmenu = () => {
+            fontSizeSubmenu.hidden = true;
+            fontSizeItem.setAttribute('aria-expanded', 'false');
+        };
+
+        fontSizeWrapper.addEventListener('mouseenter', openFontSizeSubmenu);
+        fontSizeWrapper.addEventListener('mouseleave', closeFontSizeSubmenu);
+        fontSizeWrapper.addEventListener('focusin', openFontSizeSubmenu);
+        fontSizeWrapper.addEventListener('focusout', (event) => {
+            if (!fontSizeWrapper.contains(event.relatedTarget)) {
+                closeFontSizeSubmenu();
+            }
+        });
+
+        fontSizeItem.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                if (fontSizeSubmenu.hidden) {
+                    openFontSizeSubmenu();
+                } else {
+                    closeFontSizeSubmenu();
+                }
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                closeFontSizeSubmenu();
+                fontSizeItem.blur();
+            }
+        });
+
+        fontSizeItem.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (fontSizeSubmenu.hidden) {
+                openFontSizeSubmenu();
+            } else {
+                closeFontSizeSubmenu();
+            }
+        });
+
+        fontSizeIncreaseItem.addEventListener('click', () => {
+            this.dispatchEvent(new CustomEvent('font-size-change', {
+                detail: { direction: 'increase' },
+                bubbles: true,
+                composed: true,
+            }));
+            closeFontSizeSubmenu();
+            this.closeMenu();
+        });
+
+        fontSizeDecreaseItem.addEventListener('click', () => {
+            this.dispatchEvent(new CustomEvent('font-size-change', {
+                detail: { direction: 'decrease' },
+                bubbles: true,
+                composed: true,
+            }));
+            closeFontSizeSubmenu();
+            this.closeMenu();
+        });
+
+        this.closeFontSizeSubmenu = closeFontSizeSubmenu;
     }
 
     toggleMenu() {
@@ -254,6 +394,7 @@ class AppMenu extends HTMLElement {
         this.isOpen = false;
         this.dropdown.hidden = true;
         this.menuButton.setAttribute('aria-expanded', 'false');
+        this.closeFontSizeSubmenu?.();
     }
 
     handleDocumentClick(event) {
