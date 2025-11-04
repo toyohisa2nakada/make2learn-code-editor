@@ -70,3 +70,115 @@ body {
     z-index: 1;
     pointer-events: auto;
 } */
+
+.top-menu {
+    position: relative;
+    margin-right: 8px;
+}
+
+.top-menu__button {
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.top-menu__button:focus,
+.top-menu__button:hover {
+    background-color: #ffe0d0;
+}
+
+.top-menu__dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.top-menu__dropdown[hidden] {
+    display: none;
+}
+
+.top-menu__item {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.top-menu__item:hover,
+.top-menu__item:focus {
+    background-color: #ffe9de;
+}
+
+.settings-dialog {
+    border: none;
+    border-radius: 8px;
+    padding: 20px 24px;
+    max-width: 360px;
+    width: calc(100% - 40px);
+}
+
+.settings-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.settings-dialog__form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-dialog__title {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.settings-dialog__body {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.settings-dialog__buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.settings-dialog__button {
+    min-width: 90px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    background-color: #ffffff;
+}
+
+.settings-dialog__button--ok {
+    background-color: #ffd2b3;
+    border-color: #ffb588;
+}
+
+.settings-dialog__button--ok:hover,
+.settings-dialog__button--ok:focus {
+    background-color: #ffbe8f;
+}
+
+.settings-dialog__button--cancel:hover,
+.settings-dialog__button--cancel:focus {
+    background-color: #f3f3f3;
+}

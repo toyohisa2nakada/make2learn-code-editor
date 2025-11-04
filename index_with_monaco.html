@@ -52,6 +52,14 @@
 
 <body>
     <div id="frame_top">
+        <div id="top_menu" class="top-menu">
+            <button id="top_menu_button" class="top-menu__button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="top_menu_dropdown">
+                メニュー
+            </button>
+            <div id="top_menu_dropdown" class="top-menu__dropdown" role="menu" hidden>
+                <button id="top_menu_settings" class="top-menu__item" type="button" role="menuitem">設定</button>
+            </div>
+        </div>
         <div id="filelist_panel"></div>
         <span class="memo">'a'を押すと3Dモデルが落ちてきます。エディタ内の文字はまだ3Dモデル化されていません。エディタに書かれたHTML等のエラーは下に表示されます。</span>
         <span id="message"></span>
@@ -80,6 +88,17 @@
             }
         }
     </script>
+    <dialog id="settings_dialog" class="settings-dialog" aria-modal="true" aria-labelledby="settings_dialog_title">
+        <form method="dialog" class="settings-dialog__form">
+            <h2 id="settings_dialog_title" class="settings-dialog__title">設定</h2>
+            <p class="settings-dialog__body">設定内容は準備中です。</p>
+            <div class="settings-dialog__buttons">
+                <button value="cancel" class="settings-dialog__button settings-dialog__button--cancel">キャンセル</button>
+                <button value="ok" class="settings-dialog__button settings-dialog__button--ok">OK</button>
+            </div>
+        </form>
+    </dialog>
+
     <script type="module" src="./libs_monaco/main.js"></script>
 </body>
 
