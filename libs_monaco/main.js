@@ -33,6 +33,7 @@ async function main() {
 
     // htmlの上下左右のパネルがあるframe処理のロード
     await import('./frame.js');
+    await import('./menu.js');
 
     // 画面にメニューを追加するコード
     await import('./app_menu.js');
