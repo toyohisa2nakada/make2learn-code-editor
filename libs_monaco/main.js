@@ -181,6 +181,17 @@ async function main() {
                 }
             };
             appMenuElement.addEventListener('font-size-change', handleFontSizeChange);
+
+            const handleFormatDocument = (event) => {
+                const action = editor._actions.get('editor.action.formatDocument');
+                if (action && action.isSupported()) {
+                    editor.focus();
+                    setTimeout(() => {
+                        editor.getAction('editor.action.formatDocument').run();
+                    }, 0);
+                }
+            }
+            appMenuElement.addEventListener('format-document', handleFormatDocument);
         }
 
         (new ResizeObserver(() => {
@@ -365,6 +376,8 @@ async function main() {
         requestAnimationFrame(render);
     }
     build_render();
+
+
 }
 
 // URLparameter

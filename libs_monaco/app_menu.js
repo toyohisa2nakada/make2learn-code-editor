@@ -278,6 +278,13 @@ class AppMenu extends HTMLElement {
         fontSizeWrapper.append(fontSizeItem, fontSizeSubmenu);
         dropdown.appendChild(fontSizeWrapper);
 
+        const formatDocumentItem = document.createElement('button');
+        formatDocumentItem.type = 'button';
+        formatDocumentItem.className = 'menu__item';
+        formatDocumentItem.textContent = '自動整形 (Alt+Shift+F)';
+        formatDocumentItem.setAttribute('role', 'menuitem');
+        dropdown.appendChild(formatDocumentItem);
+
         container.append(menuButton, dropdown);
 
         this.shadowRoot.append(style, container);
@@ -358,6 +365,14 @@ class AppMenu extends HTMLElement {
                 composed: true,
             }));
             closeFontSizeSubmenu();
+            this.closeMenu();
+        });
+
+        formatDocumentItem.addEventListener('click', () => {
+            this.dispatchEvent(new CustomEvent('format-document', {
+                bubbles: true,
+                composed: true,
+            }));
             this.closeMenu();
         });
 
