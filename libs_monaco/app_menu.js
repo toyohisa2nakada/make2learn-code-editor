@@ -84,6 +84,7 @@ class AppMenu extends HTMLElement {
         this.handleDocumentClick = this.handleDocumentClick.bind(this);
         this.handleDocumentKeydown = this.handleDocumentKeydown.bind(this);
         this.handleSettingsClick = this.handleSettingsClick.bind(this);
+        this.handleFormatClick = this.handleFormatClick.bind(this);
         this.handleDialogCancel = this.handleDialogCancel.bind(this);
         this.handleDialogClose = this.handleDialogClose.bind(this);
         this.handleDialogBackdrop = this.handleDialogBackdrop.bind(this);
@@ -103,6 +104,9 @@ class AppMenu extends HTMLElement {
         document.removeEventListener('keydown', this.handleDocumentKeydown);
         if (this.settingsItem) {
             this.settingsItem.removeEventListener('click', this.handleSettingsClick);
+        }
+        if (this.formatItem) {
+            this.formatItem.removeEventListener('click', this.handleFormatClick);
         }
         this.destroyDialog();
     }
@@ -237,6 +241,13 @@ class AppMenu extends HTMLElement {
         settingsItem.setAttribute('role', 'menuitem');
         dropdown.appendChild(settingsItem);
 
+        const formatItem = document.createElement('button');
+        formatItem.type = 'button';
+        formatItem.className = 'menu__item';
+        formatItem.textContent = 'コードの自動整形 (Alt+Shift+F)';
+        formatItem.setAttribute('role', 'menuitem');
+        dropdown.appendChild(formatItem);
+
         const fontSizeWrapper = document.createElement('div');
         fontSizeWrapper.className = 'menu__submenu-wrapper';
 
@@ -285,6 +296,7 @@ class AppMenu extends HTMLElement {
         this.menuButton = menuButton;
         this.dropdown = dropdown;
         this.settingsItem = settingsItem;
+        this.formatItem = formatItem;
         this.fontSizeSubmenu = fontSizeSubmenu;
         this.fontSizeItem = fontSizeItem;
 
@@ -306,6 +318,7 @@ class AppMenu extends HTMLElement {
         });
 
         this.settingsItem.addEventListener('click', this.handleSettingsClick);
+        this.formatItem.addEventListener('click', this.handleFormatClick);
 
         const openFontSizeSubmenu = () => {
             fontSizeSubmenu.hidden = false;
@@ -417,6 +430,16 @@ class AppMenu extends HTMLElement {
         if (!this.dialog.open) {
             this.dialog.showModal();
         }
+    }
+
+    handleFormatClick() {
+        window.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'F',
+            code: 'KeyF',
+            altKey: true,
+            shiftKey: true,
+        }));
+        this.closeMenu();
     }
 
     createDialog() {
