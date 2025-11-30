@@ -168,52 +168,52 @@ async function main() {
         });
         registerDocumentFormattingEditProvider_html();
 
-        const updateFontSize = (delta) => {
-            const currentSize = editor.getOption(monaco.editor.EditorOption.fontSize);
-            const nextSize = delta > 0
-                ? currentSize + delta
-                : Math.max(6, currentSize + delta);
-            editor.updateOptions({ fontSize: nextSize });
-        };
+        const menuElement1 = document.querySelectorAll("app-menu")[0];
+        console.log(menuElement1)
+        if (menuElement1 && typeof menuElement1.setItems === 'function') {
+            const updateFontSize = (delta) => {
+                const currentSize = editor.getOption(monaco.editor.EditorOption.fontSize);
+                const nextSize = delta > 0
+                    ? currentSize + delta
+                    : Math.max(6, currentSize + delta);
+                editor.updateOptions({ fontSize: nextSize });
+            };
 
-        const formatDocument = () => {
-            const action = editor._actions.get('editor.action.formatDocument');
-            if (action && action.isSupported()) {
-                editor.focus();
-                setTimeout(() => {
-                    editor.getAction('editor.action.formatDocument').run();
-                }, 0);
-            }
-        };
+            const formatDocument = () => {
+                const action = editor._actions.get('editor.action.formatDocument');
+                if (action && action.isSupported()) {
+                    editor.focus();
+                    setTimeout(() => {
+                        editor.getAction('editor.action.formatDocument').run();
+                    }, 0);
+                }
+            };
 
-        const menuItems = [
-            {
-                label: 'フォントサイズ',
-                items: [
-                    {
-                        label: '大きく',
-                        shortcut: 'Ctrl+↑',
-                        onSelect: () => updateFontSize(1),
-                    },
-                    {
-                        label: '小さく',
-                        shortcut: 'Ctrl+↓',
-                        onSelect: () => updateFontSize(-1),
-                    },
-                ],
-            },
-            {
-                label: '自動整形',
-                shortcut: 'Alt+Shift+F',
-                onSelect: formatDocument,
-            },
-        ];
+            const menuItems = [
+                {
+                    label: 'フォントサイズ',
+                    items: [
+                        {
+                            label: '大きく',
+                            shortcut: 'Ctrl+↑',
+                            onSelect: () => updateFontSize(1),
+                        },
+                        {
+                            label: '小さく',
+                            shortcut: 'Ctrl+↓',
+                            onSelect: () => updateFontSize(-1),
+                        },
+                    ],
+                },
+                {
+                    label: '自動整形',
+                    shortcut: 'Alt+Shift+F',
+                    onSelect: formatDocument,
+                },
+            ];
 
-        document.querySelectorAll('app-menu').forEach((menuElement) => {
-            if (typeof menuElement.setItems === 'function') {
-                menuElement.setItems(menuItems);
-            }
-        });
+            menuElement1.setItems(menuItems);
+        }
 
         (new ResizeObserver(() => {
             editor_resized_timer.set();
