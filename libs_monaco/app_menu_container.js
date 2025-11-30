@@ -34,9 +34,9 @@ class AppMenuContainer extends HTMLElement {
         this.shadowRoot.append(style, container);
 
         // Ensure at least one menu exists for backwards compatibility
-        if (this.menus.length === 0) {
-            this.addMenu();
-        }
+        // if (this.menus.length === 0) {
+        //     this.addMenu();
+        // }
     }
 
     addMenu({ label, items } = {}) {

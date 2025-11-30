@@ -170,8 +170,7 @@ async function main() {
         registerDocumentFormattingEditProvider_html();
 
         const menuContainer = document.querySelector('app-menu-container');
-        const menuElement1 = menuContainer?.getMenu(0) ?? menuContainer?.addMenu();
-
+        const menuElement1 = menuContainer?.addMenu({ label: "設定" });
         if (menuElement1 && typeof menuElement1.setItems === 'function') {
             const updateFontSize = (delta) => {
                 const currentSize = editor.getOption(monaco.editor.EditorOption.fontSize);
@@ -191,7 +190,7 @@ async function main() {
                 }
             };
 
-            const menuItems = [
+            menuElement1.setItems([
                 {
                     label: 'フォントサイズ',
                     items: [
@@ -212,10 +211,34 @@ async function main() {
                     shortcut: 'Alt+Shift+F',
                     onSelect: formatDocument,
                 },
-            ];
-
-            menuElement1.setItems(menuItems);
+            ]);
         }
+        const menuElement2 = menuContainer?.addMenu({ label: "課題プログラム" });
+        if (menuElement2 && typeof menuElement2.setItems === 'function') {
+            menuElement2.setItems([
+                {
+                    label: '課題1: 最初のプログラム - 全体を入れ替えてください。',
+                    onSelect: ()=>{
+                        navigator.clipboard.writeText(`<html>
+  <body>
+    <div id="content"></div>
+    <script type="module">
+      // https://restcountries.com/
+      const countries = await fetch(
+        "https://restcountries.com/v3.1/all?fields=cca2,name,flags",
+      ).then((r) => r.json());
+
+      document.querySelector("#content").innerHTML =
+        \`<pre>\${JSON.stringify(countries, null, 2)}</pre>\`;
+    </script>
+  </body>
+</html>
+`)
+                    }
+                }
+            ])
+        }
+
 
         (new ResizeObserver(() => {
             editor_resized_timer.set();

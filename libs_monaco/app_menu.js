@@ -56,7 +56,7 @@ class AppMenu extends HTMLElement {
         style.textContent = `
 :host {
     display: inline-flex;
-    margin-right: 8px;
+    margin-left: 1px;
 }
 
 .menu {
