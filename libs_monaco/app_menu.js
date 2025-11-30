@@ -1,92 +1,27 @@
 let menuIdSequence = 0;
 
-const ensureGlobalDialogStyles = (() => {
-    let injected = false;
-    return () => {
-        if (injected) {
-            return;
-        }
-        injected = true;
-        const style = document.createElement('style');
-        style.textContent = `
-dialog.app-menu__dialog {
-    border: none;
-    border-radius: 8px;
-    padding: 20px 24px;
-    max-width: 360px;
-    width: calc(100% - 40px);
-    color: #333;
-}
-
-dialog.app-menu__dialog::backdrop {
-    background: rgba(0, 0, 0, 0.35);
-}
-
-.app-menu__dialog-form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    font-family: inherit;
-}
-
-.app-menu__dialog-title {
-    margin: 0;
-    font-size: 1.1rem;
-}
-
-.app-menu__dialog-body {
-    margin: 0;
-    font-size: 0.9rem;
-}
-
-.app-menu__dialog-buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-}
-
-.app-menu__dialog-button {
-    min-width: 90px;
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    padding: 6px 12px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    background-color: #ffffff;
-}
-
-.app-menu__dialog-button--ok {
-    background-color: #ffd2b3;
-    border-color: #ffb588;
-}
-
-.app-menu__dialog-button--ok:hover,
-.app-menu__dialog-button--ok:focus {
-    background-color: #ffbe8f;
-}
-
-.app-menu__dialog-button--cancel:hover,
-.app-menu__dialog-button--cancel:focus {
-    background-color: #f3f3f3;
-}
-        `;
-        document.head.appendChild(style);
-    };
-})();
-
 class AppMenu extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
         this.menuId = `app-menu-${menuIdSequence += 1}`;
         this.isOpen = false;
-        this.dialog = undefined;
+        this.items = [];
+        this.cleanupFns = [];
+        this.submenuControls = [];
+
         this.handleDocumentClick = this.handleDocumentClick.bind(this);
         this.handleDocumentKeydown = this.handleDocumentKeydown.bind(this);
-        this.handleSettingsClick = this.handleSettingsClick.bind(this);
-        this.handleDialogCancel = this.handleDialogCancel.bind(this);
-        this.handleDialogClose = this.handleDialogClose.bind(this);
-        this.handleDialogBackdrop = this.handleDialogBackdrop.bind(this);
+    }
+
+    static get observedAttributes() {
+        return ['label'];
+    }
+
+    attributeChangedCallback(name, _oldValue, newValue) {
+        if (name === 'label' && this.menuButton) {
+            this.menuButton.textContent = newValue || '設定';
+        }
     }
 
     connectedCallback() {
@@ -101,10 +36,19 @@ class AppMenu extends HTMLElement {
     disconnectedCallback() {
         document.removeEventListener('click', this.handleDocumentClick);
         document.removeEventListener('keydown', this.handleDocumentKeydown);
-        if (this.settingsItem) {
-            this.settingsItem.removeEventListener('click', this.handleSettingsClick);
+        this.clearMenuItemListeners();
+    }
+
+    setItems(items) {
+        if (!Array.isArray(items)) {
+            this.items = [];
+        } else {
+            this.items = items.map((item) => ({ ...item }));
         }
-        this.destroyDialog();
+
+        if (this.dropdown) {
+            this.renderMenuItems();
+        }
     }
 
     render() {
@@ -166,6 +110,12 @@ class AppMenu extends HTMLElement {
     font-size: 0.5rem;
     cursor: pointer;
     font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .menu__item:hover,
@@ -173,21 +123,17 @@ class AppMenu extends HTMLElement {
     background-color: #ffe9de;
 }
 
-.menu__submenu-wrapper {
-    position: relative;
-}
-
 .menu__item--has-submenu {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
     padding-right: 16px;
 }
 
 .menu__item-arrow {
     font-size: 0.7rem;
     opacity: 0.6;
+}
+
+.menu__submenu-wrapper {
+    position: relative;
 }
 
 .menu__submenu {
@@ -211,6 +157,14 @@ class AppMenu extends HTMLElement {
 .menu__submenu-item {
     width: 100%;
 }
+
+.menu__item-label {
+    flex: 1;
+}
+
+.menu__item-shortcut {
+    opacity: 0.7;
+}
         `;
 
         const container = document.createElement('div');
@@ -219,7 +173,7 @@ class AppMenu extends HTMLElement {
         const menuButton = document.createElement('button');
         menuButton.type = 'button';
         menuButton.className = 'menu__button';
-        menuButton.textContent = '設定';
+        menuButton.textContent = this.getAttribute('label') || '設定';
         menuButton.setAttribute('aria-haspopup', 'true');
         menuButton.setAttribute('aria-expanded', 'false');
         menuButton.id = `${this.menuId}-button`;
@@ -230,70 +184,11 @@ class AppMenu extends HTMLElement {
         dropdown.id = `${this.menuId}-dropdown`;
         dropdown.hidden = true;
 
-        const settingsItem = document.createElement('button');
-        settingsItem.type = 'button';
-        settingsItem.className = 'menu__item';
-        settingsItem.textContent = '設定';
-        settingsItem.setAttribute('role', 'menuitem');
-        dropdown.appendChild(settingsItem);
-
-        const fontSizeWrapper = document.createElement('div');
-        fontSizeWrapper.className = 'menu__submenu-wrapper';
-
-        const fontSizeItem = document.createElement('div');
-        fontSizeItem.className = 'menu__item menu__item--has-submenu';
-        fontSizeItem.setAttribute('role', 'menuitem');
-        fontSizeItem.setAttribute('aria-haspopup', 'true');
-        fontSizeItem.setAttribute('aria-expanded', 'false');
-        fontSizeItem.setAttribute('tabindex', '0');
-
-        const fontSizeLabel = document.createElement('span');
-        fontSizeLabel.textContent = 'フォントサイズ';
-
-        const fontSizeArrow = document.createElement('span');
-        fontSizeArrow.className = 'menu__item-arrow';
-        fontSizeArrow.setAttribute('aria-hidden', 'true');
-        fontSizeArrow.textContent = '>';
-
-        fontSizeItem.append(fontSizeLabel, fontSizeArrow);
-
-        const fontSizeSubmenu = document.createElement('div');
-        fontSizeSubmenu.className = 'menu__submenu';
-        fontSizeSubmenu.setAttribute('role', 'menu');
-        fontSizeSubmenu.hidden = true;
-
-        const fontSizeIncreaseItem = document.createElement('button');
-        fontSizeIncreaseItem.type = 'button';
-        fontSizeIncreaseItem.className = 'menu__item menu__submenu-item';
-        fontSizeIncreaseItem.textContent = '大きく Ctrl+↑';
-        fontSizeIncreaseItem.setAttribute('role', 'menuitem');
-
-        const fontSizeDecreaseItem = document.createElement('button');
-        fontSizeDecreaseItem.type = 'button';
-        fontSizeDecreaseItem.className = 'menu__item menu__submenu-item';
-        fontSizeDecreaseItem.textContent = '小さく Ctrl+↓';
-        fontSizeDecreaseItem.setAttribute('role', 'menuitem');
-
-        fontSizeSubmenu.append(fontSizeIncreaseItem, fontSizeDecreaseItem);
-        fontSizeWrapper.append(fontSizeItem, fontSizeSubmenu);
-        dropdown.appendChild(fontSizeWrapper);
-
-        const formatDocumentItem = document.createElement('button');
-        formatDocumentItem.type = 'button';
-        formatDocumentItem.className = 'menu__item';
-        formatDocumentItem.textContent = '自動整形 (Alt+Shift+F)';
-        formatDocumentItem.setAttribute('role', 'menuitem');
-        dropdown.appendChild(formatDocumentItem);
-
         container.append(menuButton, dropdown);
-
         this.shadowRoot.append(style, container);
 
         this.menuButton = menuButton;
         this.dropdown = dropdown;
-        this.settingsItem = settingsItem;
-        this.fontSizeSubmenu = fontSizeSubmenu;
-        this.fontSizeItem = fontSizeItem;
 
         this.menuButton.setAttribute('aria-controls', dropdown.id);
 
@@ -312,71 +207,159 @@ class AppMenu extends HTMLElement {
             }
         });
 
-        this.settingsItem.addEventListener('click', this.handleSettingsClick);
+        this.renderMenuItems();
+    }
 
-        const openFontSizeSubmenu = () => {
-            fontSizeSubmenu.hidden = false;
-            fontSizeItem.setAttribute('aria-expanded', 'true');
-        };
+    renderMenuItems() {
+        if (!this.dropdown) {
+            return;
+        }
 
-        const closeFontSizeSubmenu = () => {
-            fontSizeSubmenu.hidden = true;
-            fontSizeItem.setAttribute('aria-expanded', 'false');
-        };
+        this.clearMenuItemListeners();
+        this.dropdown.innerHTML = '';
+        this.submenuControls = [];
 
-        fontSizeWrapper.addEventListener('mouseenter', openFontSizeSubmenu);
-        fontSizeWrapper.addEventListener('mouseleave', closeFontSizeSubmenu);
-        fontSizeWrapper.addEventListener('focusin', openFontSizeSubmenu);
-        fontSizeWrapper.addEventListener('focusout', (event) => {
-            if (!fontSizeWrapper.contains(event.relatedTarget)) {
-                closeFontSizeSubmenu();
+        for (const item of this.items) {
+            const element = this.createMenuItemElement(item);
+            if (element) {
+                this.dropdown.appendChild(element);
             }
-        });
+        }
+    }
 
-        fontSizeItem.addEventListener('keydown', (event) => {
+    createMenuItemElement(item) {
+        if (!item || typeof item.label !== 'string') {
+            return null;
+        }
+
+        if (Array.isArray(item.items) && item.items.length > 0) {
+            return this.createSubmenu(item);
+        }
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'menu__item';
+        button.setAttribute('role', 'menuitem');
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'menu__item-label';
+        labelSpan.textContent = item.label;
+        button.appendChild(labelSpan);
+
+        if (item.shortcut) {
+            const shortcutSpan = document.createElement('span');
+            shortcutSpan.className = 'menu__item-shortcut';
+            shortcutSpan.textContent = item.shortcut;
+            button.appendChild(shortcutSpan);
+        }
+
+        const handleClick = () => {
+            item.onSelect?.();
+            this.closeMenu();
+        };
+
+        button.addEventListener('click', handleClick);
+        this.cleanupFns.push(() => button.removeEventListener('click', handleClick));
+
+        return button;
+    }
+
+    createSubmenu(item) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'menu__submenu-wrapper';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'menu__item menu__item--has-submenu';
+        trigger.setAttribute('role', 'menuitem');
+        trigger.setAttribute('aria-haspopup', 'true');
+        trigger.setAttribute('aria-expanded', 'false');
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'menu__item-label';
+        labelSpan.textContent = item.label;
+
+        const arrow = document.createElement('span');
+        arrow.className = 'menu__item-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = '>';
+
+        trigger.append(labelSpan, arrow);
+
+        const submenu = document.createElement('div');
+        submenu.className = 'menu__submenu';
+        submenu.setAttribute('role', 'menu');
+        submenu.hidden = true;
+
+        for (const child of item.items) {
+            const childElement = this.createMenuItemElement(child);
+            if (childElement) {
+                childElement.classList.add('menu__submenu-item');
+                submenu.appendChild(childElement);
+            }
+        }
+
+        const openSubmenu = () => {
+            submenu.hidden = false;
+            trigger.setAttribute('aria-expanded', 'true');
+        };
+
+        const closeSubmenu = () => {
+            submenu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+        };
+
+        const handleMouseEnter = () => openSubmenu();
+        const handleMouseLeave = (event) => {
+            if (!wrapper.contains(event.relatedTarget)) {
+                closeSubmenu();
+            }
+        };
+        const handleFocusIn = () => openSubmenu();
+        const handleFocusOut = (event) => {
+            if (!wrapper.contains(event.relatedTarget)) {
+                closeSubmenu();
+            }
+        };
+        const handleKeydown = (event) => {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                if (fontSizeSubmenu.hidden) {
-                    openFontSizeSubmenu();
+                if (submenu.hidden) {
+                    openSubmenu();
                 } else {
-                    closeFontSizeSubmenu();
+                    closeSubmenu();
                 }
             } else if (event.key === 'Escape') {
                 event.preventDefault();
-                closeFontSizeSubmenu();
-                fontSizeItem.blur();
+                closeSubmenu();
+                trigger.blur();
             }
-        });
+        };
 
-        fontSizeIncreaseItem.addEventListener('click', () => {
-            this.dispatchEvent(new CustomEvent('font-size-change', {
-                detail: { direction: 'increase' },
-                bubbles: true,
-                composed: true,
-            }));
-            closeFontSizeSubmenu();
-            this.closeMenu();
-        });
+        wrapper.addEventListener('mouseenter', handleMouseEnter);
+        wrapper.addEventListener('mouseleave', handleMouseLeave);
+        wrapper.addEventListener('focusin', handleFocusIn);
+        wrapper.addEventListener('focusout', handleFocusOut);
+        trigger.addEventListener('keydown', handleKeydown);
 
-        fontSizeDecreaseItem.addEventListener('click', () => {
-            this.dispatchEvent(new CustomEvent('font-size-change', {
-                detail: { direction: 'decrease' },
-                bubbles: true,
-                composed: true,
-            }));
-            closeFontSizeSubmenu();
-            this.closeMenu();
-        });
+        this.cleanupFns.push(() => wrapper.removeEventListener('mouseenter', handleMouseEnter));
+        this.cleanupFns.push(() => wrapper.removeEventListener('mouseleave', handleMouseLeave));
+        this.cleanupFns.push(() => wrapper.removeEventListener('focusin', handleFocusIn));
+        this.cleanupFns.push(() => wrapper.removeEventListener('focusout', handleFocusOut));
+        this.cleanupFns.push(() => trigger.removeEventListener('keydown', handleKeydown));
 
-        formatDocumentItem.addEventListener('click', () => {
-            this.dispatchEvent(new CustomEvent('format-document', {
-                bubbles: true,
-                composed: true,
-            }));
-            this.closeMenu();
-        });
+        this.submenuControls.push({ close: closeSubmenu });
 
-        this.closeFontSizeSubmenu = closeFontSizeSubmenu;
+        wrapper.append(trigger, submenu);
+        return wrapper;
+    }
+
+    clearMenuItemListeners() {
+        for (const cleanup of this.cleanupFns) {
+            cleanup();
+        }
+        this.cleanupFns = [];
+        this.submenuControls = [];
     }
 
     toggleMenu() {
@@ -400,7 +383,9 @@ class AppMenu extends HTMLElement {
         this.isOpen = false;
         this.dropdown.hidden = true;
         this.menuButton.setAttribute('aria-expanded', 'false');
-        this.closeFontSizeSubmenu?.();
+        for (const control of this.submenuControls) {
+            control.close();
+        }
     }
 
     handleDocumentClick(event) {
@@ -415,89 +400,9 @@ class AppMenu extends HTMLElement {
     }
 
     handleDocumentKeydown(event) {
-        if (event.key === 'Escape') {
-            if (this.isOpen) {
-                this.closeMenu();
-            }
+        if (event.key === 'Escape' && this.isOpen) {
+            this.closeMenu();
         }
-    }
-
-    handleSettingsClick() {
-        this.closeMenu();
-        ensureGlobalDialogStyles();
-        if (!this.dialog) {
-            this.dialog = this.createDialog();
-            document.body.appendChild(this.dialog);
-        }
-        if (!this.dialog.open) {
-            this.dialog.showModal();
-        }
-    }
-
-    createDialog() {
-        const template = document.createElement('template');
-        template.innerHTML = `
-<dialog class="app-menu__dialog" aria-modal="true" aria-labelledby="app-menu-settings-title">
-    <form method="dialog" class="app-menu__dialog-form">
-        <h2 id="app-menu-settings-title" class="app-menu__dialog-title">設定</h2>
-        <p class="app-menu__dialog-body">設定内容は準備中です。</p>
-        <div class="app-menu__dialog-buttons">
-            <button value="cancel" class="app-menu__dialog-button app-menu__dialog-button--cancel">キャンセル</button>
-            <button value="ok" class="app-menu__dialog-button app-menu__dialog-button--ok">OK</button>
-        </div>
-    </form>
-</dialog>
-        `;
-        const dialog = template.content.firstElementChild;
-        dialog.addEventListener('cancel', this.handleDialogCancel);
-        dialog.addEventListener('close', this.handleDialogClose);
-        dialog.addEventListener('click', this.handleDialogBackdrop);
-        return dialog;
-    }
-
-    handleDialogCancel(event) {
-        event.preventDefault();
-        if (this.dialog?.open) {
-            this.dialog.close('cancel');
-        }
-    }
-
-    handleDialogClose() {
-        if (this.dialog && !this.dialog.returnValue) {
-            this.dialog.returnValue = 'cancel';
-        }
-    }
-
-    handleDialogBackdrop(event) {
-        if (!this.dialog || event.target !== this.dialog) {
-            return;
-        }
-        const rect = this.dialog.getBoundingClientRect();
-        const inDialog = (
-            event.clientX >= rect.left &&
-            event.clientX <= rect.right &&
-            event.clientY >= rect.top &&
-            event.clientY <= rect.bottom
-        );
-        if (!inDialog && this.dialog.open) {
-            this.dialog.close('cancel');
-        }
-    }
-
-    destroyDialog() {
-        if (!this.dialog) {
-            return;
-        }
-        this.dialog.removeEventListener('cancel', this.handleDialogCancel);
-        this.dialog.removeEventListener('close', this.handleDialogClose);
-        this.dialog.removeEventListener('click', this.handleDialogBackdrop);
-        if (this.dialog.open) {
-            this.dialog.close('cancel');
-        }
-        if (this.dialog.isConnected) {
-            this.dialog.remove();
-        }
-        this.dialog = undefined;
     }
 }
 
