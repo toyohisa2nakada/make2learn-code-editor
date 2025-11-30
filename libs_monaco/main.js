@@ -36,6 +36,7 @@ async function main() {
 
     // 画面にメニューを追加するコード
     await import('./app_menu.js');
+    await import('./app_menu_container.js');
 
     // 新しい設定時に前のタイマーを自動で止めて作り直すタイマー
     function build_timer(cb, msec) {
@@ -168,8 +169,9 @@ async function main() {
         });
         registerDocumentFormattingEditProvider_html();
 
-        const menuElement1 = document.querySelectorAll("app-menu")[0];
-        console.log(menuElement1)
+        const menuContainer = document.querySelector('app-menu-container');
+        const menuElement1 = menuContainer?.getMenu(0) ?? menuContainer?.addMenu();
+
         if (menuElement1 && typeof menuElement1.setItems === 'function') {
             const updateFontSize = (delta) => {
                 const currentSize = editor.getOption(monaco.editor.EditorOption.fontSize);
