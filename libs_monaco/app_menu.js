@@ -219,7 +219,7 @@ class AppMenu extends HTMLElement {
         const menuButton = document.createElement('button');
         menuButton.type = 'button';
         menuButton.className = 'menu__button';
-        menuButton.textContent = 'メニュー';
+        menuButton.textContent = '設定';
         menuButton.setAttribute('aria-haspopup', 'true');
         menuButton.setAttribute('aria-expanded', 'false');
         menuButton.id = `${this.menuId}-button`;
