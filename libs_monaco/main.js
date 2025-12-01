@@ -213,12 +213,12 @@ async function main() {
                 },
             ]);
         }
-        const menuElement2 = menuContainer?.addMenu({ label: "課題プログラム" });
+        const menuElement2 = html_params.kadai === undefined ? undefined : menuContainer?.addMenu({ label: "課題プログラム" });
         if (menuElement2 && typeof menuElement2.setItems === 'function') {
             menuElement2.setItems([
                 {
                     label: '課題1: 最初のプログラム - 全体を入れ替えてください。',
-                    onSelect: ()=>{
+                    onSelect: () => {
                         navigator.clipboard.writeText(`<html>
   <body>
     <div id="content"></div>
